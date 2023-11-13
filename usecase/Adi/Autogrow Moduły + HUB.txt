@@ -1,0 +1,57 @@
+Autogrow Moduły + HUB
+
+Use case 1: Użytkownik odpakowuje swój grow box i wyciąga nowy z pudełka
+    a)  Podłączanie HUBu do źródła energii. HUB wchodzi w tryb Access Pointu, dioda miga.
+    b)  Wejście na stronę konfiguracyjną access pointu, którą HUB wystawia jako otwartą sieć WiFi / zabezpieczoną hasłem domyślnym zawartym w instrukcji. 
+        Strona otwiera się od razu po podłączeniu do sieci.
+    c)  Użytkownik ustawia i wybiera swoją sieć WiFi.
+    d)  HUB przechodzi w tryb pasywny, łącząc się z internetem i pingując endpoint serwerowy.
+        Dioda mruga wolno.
+        d1) Jeśli nie uda się połączyć z serwerem, próbuj do skutku przez 5 minut. Jeśli nie uda się po 5 minutach, przejdź w tryb pasywny i poinformuj użytkownika, że chuja a nie działa a serwer 4 typa z polibudy nie działa.
+        d2) Jeśli uda się połączyć, to przechodzimy w tryb aktywny i przekazujemy informację do chmury o obecnych urządzeniach i konfiguracji.
+    
+Use case 2: Użytkownik chce dodać moduł do HUBa
+    a)  Użytkownik przytrzymuje przycisk WPS na HUBie przez 3 sekundy.
+    b)  HUB wchodzi w tryb WPS, dioda miga szybko.
+    c)  Użytkownik przytrzymuje przycisk WPS na module przez 3 sekundy.
+    d)  Moduł wchodzi w tryb WPS, dioda miga szybko.
+    e)  HUB i moduł łączą się przez WPS.
+    f)  HUB wykrywa podłączone moduły i przekazuje informację do chmury.
+    g)  Użytkownik loguje się na stronie chmury i konfiguruje swoje urządzenia.
+    h)  Chmura przekazuje konfigurację do HUBa.
+    i)  HUB przekazuje konfigurację do modułów.
+    
+Use case 3: Użytkownik chce usunąć moduł z HUBa
+    a)  Użytkownik wybiera moduł w chmurze i wybiera opcję usunięcia.
+    b)  Chmura przekazuje informację do HUBa.
+    c)  HUB usuwa moduł z konfiguracji i przekazuje informację do chmury.
+    d)  Moduł otrzymuje informację o usunięciu z konfiguracji i resetuje się.
+    
+Use case 4: Użytkownik chce zresetować HUBa
+    a)  Użytkownik przytrzymuje przycisk reset na HUBie przez 5 sekund.
+        LUB
+    a)  Użytkownik wchodzi na stronę konfiguracyjną HUBa i wybiera opcję resetu.
+    b)  HUB resetuje się i wchodzi w tryb Access Pointu.
+    c)  Użytkownik podłącza się do sieci HUBa i konfiguruje go od nowa.
+
+Use case 5 (premium jak starczy czasu): Użytkownik chce zmienić sieć WiFi
+    a)  Użytkownik wchodzi na stronę konfiguracyjną HUBa i wybiera opcję zmiany sieci WiFi.
+    b)  HUB wchodzi w tryb Access Pointu.
+    c)  Użytkownik podłącza się do sieci HUBa i konfiguruje go od nowa.
+    d)  HUB otrzymuje nową konfigurację i łączy się z nową siecią WiFi.
+    
+Use case 6: HUB chce pobrać dane z modułu
+    a)  Chmura wysyła zapytanie do HUBa o dane.
+    LUB
+    a)  Upływa czas automatycznego pobrania danych.
+    b)  HUB wysyła zapytanie do modułu o dane.
+    c)  Moduł odpowiada z danymi.
+    d)  HUB przekazuje dane do chmury.
+    
+Use case 7: HUB przygotowuje paczkę danych gotową do przekazania do chmury.
+    a)  HUB pobiera dane z modułów.
+    b)  HUB pakuje dane w paczkę JSON, składającą się z identyfikatora HUBa, identyfikatorów modułów i danych.
+    c)  HUB wysyła paczkę do chmury i (premium) czeka na odpowiedź zwrotną o przyjęciu danych.
+    (premium)
+    d)  Jeśli chmura nie odpowie, HUB ponawia próbę 3 razy.
+    e)  Jeśli chmura nie odpowie po 3 próbach, HUB przechodzi w tryb pasywny i informuje użytkownika o problemie (możliwe, że poprzez dźwięk).
