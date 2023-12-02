@@ -20,6 +20,7 @@ void AGWiFiScanner::scanTask(void *pvParameters) {
     scanner->generateDropdownHTML();
     Serial.println("Scan complete, " + String(scanner->numberOfNetworks) + " networks found.");
   } else if (scanner->numberOfNetworks == WIFI_SCAN_FAILED) {
+    scanner->dropdownHTML = "<p>Scan failed! Please try refreshing the network list and refer to the manual.</p>";
     Serial.println("Scan failed!");
   }
 
@@ -46,14 +47,13 @@ bool AGWiFiScanner::checkScanDone() {
 void AGWiFiScanner::generateDropdownHTML() {
   Serial.println("Generating dropdown HTML...");
   dropdownHTML = "<select id='networks' name='ssid'>";
-  dropdownHTML += "<option value=''>--Select Network--</option>";
+  dropdownHTML += "<option value=''>-- Select Network --</option>";
 
   for (int i = 0; i < numberOfNetworks; ++i) {
     String ssid = WiFi.SSID(i);
     dropdownHTML += "<option value='" + ssid + "'>" + ssid + "</option>";
   }
 
-  dropdownHTML += "<option value=''>--Enter Manually--</option>";
   dropdownHTML += "</select>";
 }
 

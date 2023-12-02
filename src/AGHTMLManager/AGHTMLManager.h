@@ -8,9 +8,12 @@ public:
   AGHTMLManager();
     
   String getWiFiForm(String dropdownHTML);
-
-private:
-  String wifiForm;
+  String getWiFiFormCSS();
+  String getConfigurePage();
+  String getConnectingPage();
+  String getSuccessPage();
+  String getFailurePage();
+  String getScanningPage();
 };
 
 #endif // AG_HTML_MANAGER_H

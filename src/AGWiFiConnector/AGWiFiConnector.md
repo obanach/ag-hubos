@@ -40,12 +40,6 @@ Provides a JSON representation of the connection status.
 - **Returns**:
   - A `String` containing a JSON object with the connection status.
 
-### String getConnectionHTML()
-Generates an HTML page that continuously checks the connection status and redirects based on the result.
-
-- **Returns**:
-  - A `String` containing the HTML markup for the connection status page.
-
 ## Private Members
 - `shouldAttemptConnection`: Indicates whether a connection attempt should be made.
 - `connectionAttemptFinished`: Indicates whether the connection attempt has finished.

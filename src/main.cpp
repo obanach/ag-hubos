@@ -32,8 +32,15 @@ void setup() {
 
   webServer.setupRoutes();
   webServer.startServer();
+  
+  if(connector.checkCredentials()) {
+    Serial.println("Saved credentials found, attempting connection...");
+    connector.attemptConnection(connector.getSavedSSID(), connector.getSavedPassword());
+  } else {
+    Serial.println("No saved credentials found.");
+    scanner.startScanNetworks();  
+  }
 
-  scanner.startScanNetworks();
   Serial.println("Captive portal started");
 }
 
@@ -44,10 +51,8 @@ void loop() {
   if (connector.isConnectionAttemptFinished()) {
     if (connector.isConnected()) {
       // Handle successful connection
-      Serial.println("Connected to WiFi successfully.");
     } else {
       // Handle failed connection
-      Serial.println("Connection to WiFi failed.");
     }
   }
 }
