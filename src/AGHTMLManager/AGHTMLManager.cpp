@@ -166,16 +166,20 @@ String AGHTMLManager::getSuccessPage() {
         "  border-radius: 15px;"
         "  box-shadow: 0 9px #999;"
         "}"
+        ".button-blue { background-color: #2196f3; }"
         ".button:hover { background-color: #ff3021; }"
         ".button:active {"
         "  background-color: #ff1303;"
         "  box-shadow: 0 5px #666;"
         "  transform: translateY(4px);"
         "}"
+        ".button-blue:hover { background-color: #0b7dda; }"
+        ".button-blue:active { background-color: #0a6cd1; }"
         "</style>"
         "</head>"
         "<body>"
         "<h1>Connected Successfully!</h1>"
+        "<a href='/modules' class='button'>Add a module</a>"
         "<a href='/reset' class='button'>Reset</a>"
         "</body>"
         "</html>";
@@ -199,4 +203,38 @@ String AGHTMLManager::getScanningPage() {
         "<h1>Scanning for Networks</h1>"
         "<p>The page will refresh automatically. If that doesn't happen, please refresh in a moment.</p>"
         "</body></html>";
+}
+
+String AGHTMLManager::getModulesPage() {
+    String html = "<!DOCTYPE html><html><head><title>Modules</title>"
+        "<style>"
+        "body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }"
+        ".module { background-color: #FFFFFF; border: 1px solid #DDD; padding: 10px; margin-bottom: 10px; border-radius: 4px; cursor: pointer; }"
+        ".module:hover { background-color: #EEE; }"
+        "h1 { color: #333; }"
+        "h2 { color: #444; }"
+        "h3 { color: #555; }"
+        "</style>"
+        "</head><body>"
+        "<h1>Available Modules</h1>";
+    
+    std::vector<AGModule> modules = AGModuleManager::instance->getDiscoveredModuleList();
+
+    if(modules.size() == 0) {
+        html += "<h2>No modules found :(</h2>"
+        "<h3>Please refresh the page in a moment.</h3>"
+        "<h3>If the issue persists, please make sure that the module you'd like to add is powered on an in range.</h3>";
+    }
+
+    for (const auto& module : modules) {
+        Serial.println("<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">");
+        html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">"
+            "<h2>" + module.name + " (" + module.type + ")</h2>"
+            "<p>MAC: " + macToString(module.macAddress) + "</p>"
+            "</div>";
+    }
+
+    html += "</body></html>";
+
+    return html;
 }

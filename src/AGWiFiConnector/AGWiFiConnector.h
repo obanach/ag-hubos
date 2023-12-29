@@ -18,6 +18,8 @@ public:
   String getSavedSSID();
   String getSavedPassword();
   void clearCredentials();
+  void tempDisconnect();
+  void tempReconnect();
 
 private:
   Preferences wifiCredentials;

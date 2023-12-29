@@ -46,6 +46,7 @@ String AGWiFiConnector::getSavedPassword() {
 void AGWiFiConnector::attemptConnection(const String& ssid, const String& password) {
     if (!shouldAttemptConnection) {
         WiFi.disconnect();
+        WiFi.mode(WIFI_AP_STA);
         WiFi.begin(ssid.c_str(), password.c_str());
         startAttemptTime = millis();
         ssidToSave = ssid;
@@ -79,6 +80,14 @@ void AGWiFiConnector::resetConnection() {
     shouldAttemptConnection = false;
     connectionAttemptFinished = false;
     connectionSuccessful = false;
+}
+
+void AGWiFiConnector::tempDisconnect() {
+    WiFi.disconnect();
+}
+
+void AGWiFiConnector::tempReconnect() {
+    WiFi.begin(getSavedSSID().c_str(), getSavedPassword().c_str());
 }
 
 bool AGWiFiConnector::isConnected() {

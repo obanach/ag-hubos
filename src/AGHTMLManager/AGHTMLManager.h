@@ -2,6 +2,9 @@
 #define AG_HTML_MANAGER_H
 
 #include <WiFi.h>
+#include "AGModuleManager/AGModuleManager.h"
+#include "AGModule/AGModule.h"
+#include "AGUtil/AGUtil.h"
 
 class AGHTMLManager {
 public:
@@ -14,6 +17,7 @@ public:
   String getSuccessPage();
   String getFailurePage();
   String getScanningPage();
+  String getModulesPage();
 };
 
 #endif // AG_HTML_MANAGER_H

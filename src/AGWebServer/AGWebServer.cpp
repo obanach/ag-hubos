@@ -1,7 +1,8 @@
 #include "AGWebServer.h"
 
-AGWebServer::AGWebServer(AGWiFiScanner& scannerRef, AGWiFiConnector& connectorRef, AGHTMLManager& htmlManagerRef)
-: server(80), scanner(scannerRef), connector(connectorRef), htmlManager(htmlManagerRef) {}
+AGWebServer::AGWebServer(AGWiFiScanner& scannerRef, AGWiFiConnector& connectorRef, AGHTMLManager& htmlManagerRef, 
+                         AGConnectionSwitcher& connectionSwitcherRef, AGModuleManager& moduleManagerRef)
+: server(80), scanner(scannerRef), connector(connectorRef), htmlManager(htmlManagerRef), connectionSwitcher(connectionSwitcherRef), moduleManager(moduleManagerRef) {}
 
 void AGWebServer::setupRoutes() {
     // Serve the configuration webpage with the dropdown
@@ -49,10 +50,31 @@ void AGWebServer::setupRoutes() {
         request->send(200, "text/html", htmlManager.getFailurePage());
     });
 
-    server.on("/reset" , HTTP_GET, [this](AsyncWebServerRequest *request){
+    server.on("/reset", HTTP_GET, [this](AsyncWebServerRequest *request){
         connector.resetConnection();
         scanner.startScanNetworks();  
         request->redirect("/");
+    });
+    
+    server.on("/modules", HTTP_GET, [this](AsyncWebServerRequest *request){
+        connectionSwitcher.forceEspNow();
+        moduleManager.discoverModules();
+        request->send(200, "text/html", htmlManager.getModulesPage());
+    });
+
+    server.on("/module", HTTP_GET, [this](AsyncWebServerRequest *request){
+        connectionSwitcher.forceEspNow();
+        if (request->hasParam("mac", false)) {
+            Serial.println("Request has a mac param");
+            String idValue = request->getParam("mac", false)->value();
+            moduleManager.connectModule(idValue);
+            connectionSwitcher.startCarousel();
+            request->redirect("/"); // todo: change this to a page that shows the module's info
+        } else {
+            Serial.println("Request doesn't have a mac param");
+            connectionSwitcher.startCarousel();
+            request->redirect("/"); // todo: change this to a page that shows an error
+        }
     });
 
     // Handle not found (if any request comes for a non-existing page)
