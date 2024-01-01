@@ -14,7 +14,7 @@ void AGDataManager::printPackage(String package) {
         return;
     }
 
-    long timestamp = doc["timestamp"];
+    String timestamp = doc["timestamp"];
     float temperature = doc["temperature"];
     float airHumidity = doc["airHumidity"];
     float dirtHumidity = doc["dirtHumidity"];

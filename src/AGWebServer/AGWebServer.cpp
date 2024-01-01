@@ -59,22 +59,38 @@ void AGWebServer::setupRoutes() {
     server.on("/modules", HTTP_GET, [this](AsyncWebServerRequest *request){
         connectionSwitcher.forceEspNow();
         moduleManager.discoverModules();
+        delay(300);
         request->send(200, "text/html", htmlManager.getModulesPage());
     });
 
     server.on("/module", HTTP_GET, [this](AsyncWebServerRequest *request){
         connectionSwitcher.forceEspNow();
+
         if (request->hasParam("mac", false)) {
             Serial.println("Request has a mac param");
-            String idValue = request->getParam("mac", false)->value();
-            moduleManager.connectModule(idValue);
+            String macValue = request->getParam("mac", false)->value();
+
+            if (moduleManager.isModuleConnected(macValue)) {
+                moduleManager.disconnectModule(macValue);
+                Serial.println("Module disconnected");
+            } else {
+                moduleManager.connectModule(macValue);
+                Serial.println("Module connected");
+            }
+
             connectionSwitcher.startCarousel();
-            request->redirect("/"); // todo: change this to a page that shows the module's info
+            delay(300);
+            request->redirect("/modules");
         } else {
             Serial.println("Request doesn't have a mac param");
             connectionSwitcher.startCarousel();
-            request->redirect("/"); // todo: change this to a page that shows an error
+            request->redirect("/"); // Redirect to an error page or the home page
         }
+    });
+
+    server.on("/modulesDone", HTTP_GET, [this](AsyncWebServerRequest *request){
+        connectionSwitcher.startCarousel();
+        request->redirect("/");
     });
 
     // Handle not found (if any request comes for a non-existing page)

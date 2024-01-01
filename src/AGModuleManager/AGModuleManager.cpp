@@ -26,6 +26,7 @@ void AGModuleManager::initEspNow() {
 }
 
 void AGModuleManager::discoverModules() {
+    discoveredModules.clear();
     broadcastMessage("DISCOVER");
 }
 
@@ -94,27 +95,71 @@ void AGModuleManager::disconnectModule(const String& macAddress) {
     uint8_t newMac[6];
     stringToMac(macAddress, newMac);
 
-    connectedModules.erase(
-        std::remove_if(
-            connectedModules.begin(), 
-            connectedModules.end(), 
-            [&newMac](const AGModule& m) {
-                return std::equal(std::begin(m.macAddress), std::end(m.macAddress), std::begin(newMac));
-            }
-        ), 
-        connectedModules.end()
-    );
+    if(sendMessage("UNPAIR", macAddress))
+        Serial.println("Module disconnection request sent: " + macAddress);
+}
+
+bool AGModuleManager::isModuleConnected(const String& macAddress) {
+    for (const auto& module : connectedModules)
+        if (macToString(module.macAddress) == macAddress)
+            return true;
+            
+    return false;
 }
 
 std::vector<AGModule> AGModuleManager::getDiscoveredModuleList() {
     return discoveredModules;
 }
 
+std::vector<AGModule> AGModuleManager::getConnectedModuleList() {
+    return connectedModules;
+}
+
+void AGModuleManager::saveModulesToMemory() {
+    savedModules.begin("modules", false);
+    savedModules.clear();
+    Serial.println("Saving modules to memory.");
+
+    for (size_t i = 0; i < connectedModules.size(); i++) {
+        String key = "module" + String(i);
+        String value = connectedModules[i].toString();
+        savedModules.putString(key.c_str(), value);
+    }
+
+    Serial.println("Modules saved to memory: " + String(connectedModules.size()));
+
+    savedModules.end();
+}
+
+void AGModuleManager::loadModulesFromMemory() {
+    savedModules.begin("modules", true);
+    Serial.println("Reading modules from memory.");
+
+    connectedModules.clear();
+
+    for (size_t i = 0; ; ++i) {
+        String key = "module" + String(i);
+        
+        if (!savedModules.isKey(key.c_str()))
+            break;
+
+        String serializedModule = savedModules.getString(key.c_str());
+        AGModule module(serializedModule);
+        connectedModules.push_back(module);
+    }
+
+    Serial.println("Modules loaded from memory: " + String(connectedModules.size()));
+
+    savedModules.end();
+}
+
 void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) {
     String message = String((char*)incomingData);
     Serial.println("Data received from: " + macToString(mac_addr) + " - " + message);
     if (!instance) return;
-    if (message == "ESP8266_HERE") {
+    if (message.substring(0, 6) == "MODULE") {
+        String moduleInfo = message.substring(6);
+        AGModule agModule(moduleInfo);
         bool found = false;
         for (auto& module : instance->discoveredModules) {
             if (module.isMacAddressEqual(mac_addr)) {
@@ -125,11 +170,12 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         }
 
         if (!found) {
-            AGModule agModule(message, "ESP8266", mac_addr);
             instance->discoveredModules.push_back(agModule);
             Serial.println("ESP8266 module discovered and added to the list: " + macToString(mac_addr));
         }
-    } else if(message == "PAIR_OK") {
+    } else if(message.substring(0, 7) == "PAIR_OK") {
+        String moduleInfo = message.substring(7);
+        AGModule agModule(moduleInfo);
         bool found = false;
         for (auto& module : instance->connectedModules) {
             if (module.isMacAddressEqual(mac_addr)) {
@@ -140,15 +186,31 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         }
 
         if (!found) {
-            AGModule agModule(message, "ESP8266", mac_addr);
             instance->connectedModules.push_back(agModule);
             Serial.println("Module connected and added to the list: " + macToString(mac_addr));
+            instance->saveModulesToMemory();
         }
+
+        instance->discoverModules();
     } else if(message == "PAIR_KO") {
         Serial.println("Module pairing failed: " + macToString(mac_addr));
+    } else if(message == "UNPAIR_OK") {
+        uint8_t newMac[6];
+        memcpy(newMac, mac_addr, 6);
+        instance->connectedModules.erase(
+        std::remove_if(
+            instance->connectedModules.begin(), 
+            instance->connectedModules.end(), 
+            [&newMac](const AGModule& m) {
+                return std::equal(std::begin(m.macAddress), std::end(m.macAddress), std::begin(newMac));
+            }), 
+            instance->connectedModules.end()
+        );
+        instance->discoverModules();
+        Serial.println("Module disconnected: " + macToString(mac_addr));
     } else if(message.substring(0, 4) == "DATA") {
         Serial.println("Data received from module: " + macToString(mac_addr));
-        String data = message.substring(5);
+        String data = message.substring(4);
         instance->dataManager.printPackage(data);
     } else {
         Serial.println("Unknown message received: " + message);

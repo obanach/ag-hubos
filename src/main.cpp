@@ -55,6 +55,7 @@ void setup() {
         scanner.startScanNetworks();  
     }
 
+    moduleManager.loadModulesFromMemory();
     Serial.println("Captive portal started");
 }
 

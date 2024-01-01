@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include <vector>
 #include <esp_now.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include "AGModule/AGModule.h"
 #include "AGUtil/AGUtil.h"
@@ -19,12 +20,16 @@ public:
     bool sendMessage(const String& message, const String& macAddress);
     void connectModule(const String& macAddress);
     void disconnectModule(const String& macAddress);
+    bool isModuleConnected(const String& macAddress);
     void sendPackageRequests();
     std::vector<AGModule> getDiscoveredModuleList();
     std::vector<AGModule> getConnectedModuleList();
+    void saveModulesToMemory();
+    void loadModulesFromMemory();
     static AGModuleManager* instance;
 
 private:
+    Preferences savedModules;
     AGDataManager& dataManager;
     std::vector<AGModule> discoveredModules;
     std::vector<AGModule> connectedModules;

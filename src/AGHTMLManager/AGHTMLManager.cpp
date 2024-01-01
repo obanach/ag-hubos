@@ -154,6 +154,7 @@ String AGHTMLManager::getSuccessPage() {
         "h1 { color: #388e3c; }"
         ".button {"
         "  display: inline-block;"
+        "  margin: 0px 10px;"
         "  padding: 10px 20px;"
         "  font-size: 16px;"
         "  cursor: pointer;"
@@ -179,7 +180,7 @@ String AGHTMLManager::getSuccessPage() {
         "</head>"
         "<body>"
         "<h1>Connected Successfully!</h1>"
-        "<a href='/modules' class='button'>Add a module</a>"
+        "<a href='/modules' class='button button-blue'>Add a module</a>"
         "<a href='/reset' class='button'>Reset</a>"
         "</body>"
         "</html>";
@@ -214,25 +215,73 @@ String AGHTMLManager::getModulesPage() {
         "h1 { color: #333; }"
         "h2 { color: #444; }"
         "h3 { color: #555; }"
+        "button { padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }"
+        "button:hover { background-color: #45a049; }"
         "</style>"
         "</head><body>"
         "<h1>Available Modules</h1>";
-    
-    std::vector<AGModule> modules = AGModuleManager::instance->getDiscoveredModuleList();
 
-    if(modules.size() == 0) {
+    std::vector<AGModule> modules = AGModuleManager::instance->getDiscoveredModuleList();
+    std::vector<AGModule> connectedModules = AGModuleManager::instance->getConnectedModuleList();
+
+    if(modules.size() == 0 && connectedModules.size() == 0) {
         html += "<h2>No modules found :(</h2>"
         "<h3>Please refresh the page in a moment.</h3>"
         "<h3>If the issue persists, please make sure that the module you'd like to add is powered on an in range.</h3>";
+    } else {
+        // Display Connected and Nearby Modules
+        html += "<h2>Connected and working:</h2>";
+        for (const auto& module : modules) {
+            for (const auto& connectedModule : connectedModules) {
+                if (module.isMacAddressEqual(connectedModule.macAddress)) {
+                    html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">"
+                        "<h2>" + module.name + " (" + module.type + ")</h2>"
+                        "<p>MAC: " + macToString(module.macAddress) + "</p>"
+                        "</div>";
+                    break;
+                }
+            }
+        }
+
+        // Display Connected, but Not Nearby Modules
+        html += "<h2>Connected, but unreachable:</h2>";
+        for (const auto& connectedModule : connectedModules) {
+            bool isNearby = false;
+            for (const auto& module : modules) {
+                if (connectedModule.isMacAddressEqual(module.macAddress)) {
+                    isNearby = true;
+                    break;
+                }
+            }
+            if (!isNearby) {
+                html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(connectedModule.macAddress) + "'\">"
+                    "<h2>" + connectedModule.name + " (" + connectedModule.type + ")</h2>"
+                    "<p>MAC: " + macToString(connectedModule.macAddress) + "</p>"
+                    "</div>";
+            }
+        }
+
+        // Display Not Connected Modules
+        html += "<h2>Not connected:</h2>";
+        for (const auto& module : modules) {
+            bool isConnected = false;
+            for (const auto& connectedModule : connectedModules) {
+                if (module.isMacAddressEqual(connectedModule.macAddress)) {
+                    isConnected = true;
+                    break;
+                }
+            }
+            if (!isConnected) {
+                html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">"
+                    "<h2>" + module.name + " (" + module.type + ")</h2>"
+                    "<p>MAC: " + macToString(module.macAddress) + "</p>"
+                    "</div>";
+            }
+        }
     }
 
-    for (const auto& module : modules) {
-        Serial.println("<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">");
-        html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">"
-            "<h2>" + module.name + " (" + module.type + ")</h2>"
-            "<p>MAC: " + macToString(module.macAddress) + "</p>"
-            "</div>";
-    }
+    // Adding the 'Done' button
+    html += "<button onclick=\"window.location.href='modulesDone'\">Done</button>";
 
     html += "</body></html>";
 
