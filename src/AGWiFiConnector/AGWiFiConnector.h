@@ -3,6 +3,7 @@
 
 #include <WiFi.h>
 #include <Preferences.h>
+#include <esp_wifi.h>
 
 class AGWiFiConnector {
 public:

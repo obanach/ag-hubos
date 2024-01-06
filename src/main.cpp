@@ -11,6 +11,7 @@
 
 const char* ssid = "AutoGrow - HUB Connection";
 const char* password = "autogrow";
+IPAddress apIP(192, 168, 0, 69);
 
 AGWiFiScanner scanner;
 AGWiFiConnector connector;
@@ -21,7 +22,6 @@ AGConnectionSwitcher connectionSwitcher(connector, moduleManager);
 AGWebServer webServer(scanner, connector, htmlManager, connectionSwitcher, moduleManager);
 
 const byte DNS_PORT = 53;
-IPAddress apIP(192, 168, 0, 69);
 DNSServer dnsServer;
 
 int espNowTimer = 0;

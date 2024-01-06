@@ -10,6 +10,7 @@
 #include "AGModule/AGModule.h"
 #include "AGUtil/AGUtil.h"
 #include "AGDataManager/AGDataManager.h"
+#include "AGPacket/AGPacket.h"
 
 class AGModuleManager {
 public:

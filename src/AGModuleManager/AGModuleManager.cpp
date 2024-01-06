@@ -9,6 +9,7 @@ AGModuleManager::AGModuleManager(AGDataManager& dataManagerRef) : dataManager(da
 
 void AGModuleManager::initEspNow() {
     // Initialize ESP-NOW
+
     if (esp_now_init() != 0) {
         Serial.println("Error initializing ESP-NOW");
         return;
@@ -83,7 +84,7 @@ void AGModuleManager::connectModule(const String& macAddress) {
 
     // If the module is not already connected, create a new AGModule object and add it to the list
     if (it == connectedModules.end()) {
-        if(sendMessage("PAIR", macAddress))
+        if(sendMessage(AGPacket("PAIR"), macAddress))
             Serial.println("Module pairing request sent: " + macAddress);
     } else {
         Serial.println("Module already connected: " + macAddress);
@@ -95,7 +96,7 @@ void AGModuleManager::disconnectModule(const String& macAddress) {
     uint8_t newMac[6];
     stringToMac(macAddress, newMac);
 
-    if(sendMessage("UNPAIR", macAddress))
+    if(sendMessage(AGPacket("UNPAIR"), macAddress))
         Serial.println("Module disconnection request sent: " + macAddress);
 }
 
@@ -154,12 +155,11 @@ void AGModuleManager::loadModulesFromMemory() {
 }
 
 void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) {
-    String message = String((char*)incomingData);
-    Serial.println("Data received from: " + macToString(mac_addr) + " - " + message);
+    AGPacket packet((char*)incomingData);
+    Serial.println("Data received from: " + macToString(mac_addr) + " - " + packet.header);
     if (!instance) return;
-    if (message.substring(0, 6) == "MODULE") {
-        String moduleInfo = message.substring(6);
-        AGModule agModule(moduleInfo);
+    if (packet.header == "MODULE") {
+        AGModule agModule(packet.data);
         bool found = false;
         for (auto& module : instance->discoveredModules) {
             if (module.isMacAddressEqual(mac_addr)) {
@@ -173,8 +173,8 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
             instance->discoveredModules.push_back(agModule);
             Serial.println("ESP8266 module discovered and added to the list: " + macToString(mac_addr));
         }
-    } else if(message.substring(0, 7) == "PAIR_OK") {
-        String moduleInfo = message.substring(7);
+    } else if(packet.header == "PAIR_OK") {
+        String moduleInfo = packet.data;
         AGModule agModule(moduleInfo);
         bool found = false;
         for (auto& module : instance->connectedModules) {
@@ -192,9 +192,9 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         }
 
         instance->discoverModules();
-    } else if(message == "PAIR_KO") {
+    } else if(packet.header == "PAIR_KO") {
         Serial.println("Module pairing failed: " + macToString(mac_addr));
-    } else if(message == "UNPAIR_OK") {
+    } else if(packet.header == "UNPAIR_OK") {
         uint8_t newMac[6];
         memcpy(newMac, mac_addr, 6);
         instance->connectedModules.erase(
@@ -208,17 +208,17 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         );
         instance->discoverModules();
         Serial.println("Module disconnected: " + macToString(mac_addr));
-    } else if(message.substring(0, 4) == "DATA") {
-        Serial.println("Data received from module: " + macToString(mac_addr));
-        String data = message.substring(4);
-        instance->dataManager.printPackage(data);
+    } else if(packet.header == "DATA") {
+        instance->dataManager.printPackage(packet);
+    } else if(packet.header == "NO_PACKAGES") {
+
     } else {
-        Serial.println("Unknown message received: " + message);
+        Serial.println("Unknown message received: " + packet.toString());
     }
 }
 
 void AGModuleManager::sendPackageRequests() {
     for (auto& module : connectedModules) {
-        sendMessage("PACKAGE_SEND", macToString(module.macAddress));
+        sendMessage(AGPacket("PACKAGE_SEND"), macToString(module.macAddress));
     }
 }

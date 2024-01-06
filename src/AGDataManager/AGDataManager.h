@@ -4,11 +4,12 @@
 #include <ArduinoJson.h>
 #include "AGModule/AGModule.h"
 #include "AGUtil/AGUtil.h"
+#include "AGPacket/AGPacket.h"
 
 class AGDataManager {
 public:
     AGDataManager();
-    void printPackage(String package);
+    void printPackage(AGPacket package);
 };
 
 #endif // AG_DATA_MANAGER_H

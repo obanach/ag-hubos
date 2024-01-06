@@ -63,7 +63,7 @@ void AGWiFiConnector::updateConnection() {
             connectionSuccessful = true;
             shouldAttemptConnection = false;
             connectionAttemptFinished = true;
-            Serial.println("Connected to WiFi successfully.");
+            Serial.println("Connected to WiFi successfully. On channel " + String(WiFi.channel()) + ".");
             saveCredentials(ssidToSave, passwordToSave);
         } else if (millis() - startAttemptTime >= 10000) { // Connection timeout
             WiFi.disconnect();
@@ -83,11 +83,11 @@ void AGWiFiConnector::resetConnection() {
 }
 
 void AGWiFiConnector::tempDisconnect() {
-    WiFi.disconnect();
+    esp_wifi_disconnect();
 }
 
 void AGWiFiConnector::tempReconnect() {
-    WiFi.begin(getSavedSSID().c_str(), getSavedPassword().c_str());
+    esp_wifi_connect();
 }
 
 bool AGWiFiConnector::isConnected() {

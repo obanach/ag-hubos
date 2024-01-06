@@ -4,9 +4,9 @@ AGDataManager::AGDataManager() {
     // Constructor
 }
 
-void AGDataManager::printPackage(String package) {
+void AGDataManager::printPackage(AGPacket package) {
     StaticJsonDocument<200> doc;
-    DeserializationError error = deserializeJson(doc, package);
+    DeserializationError error = deserializeJson(doc, package.data);
 
     if (error) {
         Serial.print(F("deserializeJson() failed: "));

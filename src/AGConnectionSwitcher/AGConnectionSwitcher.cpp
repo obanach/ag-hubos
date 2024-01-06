@@ -6,6 +6,7 @@ AGConnectionSwitcher::AGConnectionSwitcher(AGWiFiConnector& connectorRef, AGModu
     carouselStartTime = 0;
     carouselMode = 0;
     espTimer = 0;
+    discoverTimer = 0;
 }
 
 // This function will return 0 or 1 depending on how long the carousel has been running. 0 means WIFI, 1 means ESP-NOW.
@@ -13,28 +14,32 @@ int AGConnectionSwitcher::updateCarousel(bool force /* = false */) {
     if (carouselRunning || force) {
         int64_t timeNow = esp_timer_get_time();
 
-        if (carouselMode == 1 && timeNow - espTimer > 5e6) {
+        if (carouselMode == 1 && timeNow - espTimer > 4e4 && timeNow - carouselStartTime < 13e4) { // every 40ms but only for 130ms
             espTimer = timeNow;
-            Serial.println("Discovering modules...");
-            moduleManager.discoverModules();
             Serial.println("Sending package requests...");
             moduleManager.sendPackageRequests();
         }
 
-        if (timeNow - carouselStartTime > 30e6) {
-            carouselStartTime = timeNow;
-            carouselMode++;
-            if (carouselMode >= 2) carouselMode = 0;
-
-            if (carouselMode == 0) {
-                Serial.println("It's WiFi-ing time.");
-                connector.tempReconnect();
-            } else {
-                Serial.println("It's ESP-NOW-ing time.");
-                connector.tempDisconnect();
-                espTimer = timeNow;
-            }
+        if (carouselMode == 1 && timeNow - discoverTimer > 15e4) { // 150ms
+            discoverTimer = timeNow;
+            Serial.println("Discovering modules...");
+            moduleManager.discoverModules();
         }
+
+        if (carouselMode == 0 && timeNow - carouselStartTime > 59e6) { // 59s
+            carouselStartTime = timeNow;
+            carouselMode = 1;
+            Serial.println("It's ESP-NOW-ing time.");
+            connector.tempDisconnect();
+            espTimer = timeNow;
+        }
+
+        if(carouselMode == 1 && timeNow - carouselStartTime > 1.8e5) { // 180ms
+            carouselStartTime = timeNow;
+            carouselMode = 0;
+            Serial.println("It's WiFi-ing time.");
+            connector.tempReconnect();
+        } 
     }
     return carouselMode;
 }

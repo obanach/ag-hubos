@@ -22,6 +22,7 @@ private:
     bool carouselRunning;
     int64_t carouselStartTime;
     int64_t espTimer;
+    int64_t discoverTimer;
     int carouselMode;
     AGWiFiConnector& connector;
     AGModuleManager& moduleManager;
