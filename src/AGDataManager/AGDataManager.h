@@ -5,11 +5,18 @@
 #include "AGModule/AGModule.h"
 #include "AGUtil/AGUtil.h"
 #include "AGPacket/AGPacket.h"
+#include "AGWebClient/AGWebClient.h"
+#include "AGMQTTClient/AGMQTTClient.h"
 
 class AGDataManager {
 public:
-    AGDataManager();
-    void printPackage(AGPacket package);
+    AGDataManager(AGMQTTClient& mqttClientRef, AGWebClient& webClientRef);
+    void getPackage(AGPacket package);
+    void sendStoredPackage();
+private:
+    AGMQTTClient& mqttClient;
+    AGWebClient& webClient;
+    std::vector<AGPacket> storedPackages;
 };
 
 #endif // AG_DATA_MANAGER_H

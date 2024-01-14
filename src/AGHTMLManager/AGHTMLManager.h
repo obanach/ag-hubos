@@ -14,10 +14,12 @@ public:
   String getWiFiFormCSS();
   String getConfigurePage();
   String getConnectingPage();
-  String getSuccessPage();
   String getFailurePage();
   String getScanningPage();
   String getModulesPage();
+  String getCodeInputPage();
+  String getPairingSuccessPage();
+  String getPairingFailurePage();
 };
 
 #endif // AG_HTML_MANAGER_H

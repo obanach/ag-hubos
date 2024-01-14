@@ -6,6 +6,7 @@
 #include <vector>
 #include <esp_now.h>
 #include <WiFi.h>
+#include "AGUtil/AGUtil.h"
 
 class AGModule {
 public:

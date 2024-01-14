@@ -1,10 +1,11 @@
 #include "AGDataManager.h"
 
-AGDataManager::AGDataManager() {
-    // Constructor
+AGDataManager::AGDataManager(AGMQTTClient& mqttClientRef, AGWebClient& webClientRef) : mqttClient(mqttClientRef), webClient(webClientRef) {
+    storedPackages.clear();
 }
 
-void AGDataManager::printPackage(AGPacket package) {
+void AGDataManager::getPackage(AGPacket package) {
+    storedPackages.push_back(package);
     StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, package.data);
 
@@ -28,4 +29,19 @@ void AGDataManager::printPackage(AGPacket package) {
     Serial.print("Dirt Humidity: "); Serial.println(dirtHumidity);
     Serial.print("Voltage: "); Serial.println(voltage);
     Serial.print("Battery Percentage: "); Serial.println(batteryPercentage);
+}
+
+void AGDataManager::sendStoredPackage() {
+    if(storedPackages.size() == 0) {
+        return;
+    }
+
+    AGPacket package = storedPackages.front();
+
+
+
+    storedPackages.erase(storedPackages.begin());
+    
+    Serial.println("Sending package to MQTT.");
+    mqttClient.publish("hub/1/data", package.toString());
 }

@@ -1,9 +1,11 @@
 // AGModuleManager.cpp
 #include "AGModuleManager.h"
+#include "AGMQTTClient/AGMQTTClient.h"
+#include "AGConnectionSwitcher/AGConnectionSwitcher.h"
 
 AGModuleManager* AGModuleManager::instance = nullptr;
 
-AGModuleManager::AGModuleManager(AGDataManager& dataManagerRef) : dataManager(dataManagerRef) {
+AGModuleManager::AGModuleManager(AGDataManager& dataManagerRef) : dataManager(dataManagerRef), mqttClient(nullptr), connectionSwitcher(nullptr) {
     instance = this;
 }
 
@@ -91,13 +93,39 @@ void AGModuleManager::connectModule(const String& macAddress) {
     }
 }
 
-void AGModuleManager::disconnectModule(const String& macAddress) {
+void AGModuleManager::disconnectModule(const String& macAddress, bool force /* = false */) {
     // Remove the module with the given MAC address from the list of connected modules
     uint8_t newMac[6];
     stringToMac(macAddress, newMac);
 
+    connectionSwitcher->forceEspNow(500);
+    if(force) {
+        connectedModules.erase(
+        std::remove_if(
+            connectedModules.begin(), 
+            connectedModules.end(), 
+            [&newMac](const AGModule& m) {
+                return std::equal(std::begin(m.macAddress), std::end(m.macAddress), std::begin(newMac));
+            }), 
+            connectedModules.end()
+        );
+    }
+
     if(sendMessage(AGPacket("UNPAIR"), macAddress))
         Serial.println("Module disconnection request sent: " + macAddress);
+}
+
+void AGModuleManager::disconnectAllModules() {
+    for (auto& module : connectedModules) {
+        disconnectModule(macToString(module.macAddress), true);
+    }
+}
+
+void AGModuleManager::clearModules() {
+    disconnectAllModules();
+    connectedModules.clear();
+    discoveredModules.clear();
+    saveModulesToMemory();
 }
 
 bool AGModuleManager::isModuleConnected(const String& macAddress) {
@@ -160,6 +188,7 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
     if (!instance) return;
     if (packet.header == "MODULE") {
         AGModule agModule(packet.data);
+        Serial.println("Module info: " + packet.data + " - " + agModule.toString());
         bool found = false;
         for (auto& module : instance->discoveredModules) {
             if (module.isMacAddressEqual(mac_addr)) {
@@ -175,6 +204,7 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         }
     } else if(packet.header == "PAIR_OK") {
         String moduleInfo = packet.data;
+        Serial.println("Module info: " + moduleInfo);
         AGModule agModule(moduleInfo);
         bool found = false;
         for (auto& module : instance->connectedModules) {
@@ -188,6 +218,9 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         if (!found) {
             instance->connectedModules.push_back(agModule);
             Serial.println("Module connected and added to the list: " + macToString(mac_addr));
+            AGServerPacket serverPacket;
+            serverPacket.contentsFromModuleVector(instance->connectedModules);
+            Serial.println(serverPacket);
             instance->saveModulesToMemory();
         }
 
@@ -209,7 +242,7 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         instance->discoverModules();
         Serial.println("Module disconnected: " + macToString(mac_addr));
     } else if(packet.header == "DATA") {
-        instance->dataManager.printPackage(packet);
+        instance->dataManager.getPackage(packet);
     } else if(packet.header == "NO_PACKAGES") {
 
     } else {
@@ -221,4 +254,12 @@ void AGModuleManager::sendPackageRequests() {
     for (auto& module : connectedModules) {
         sendMessage(AGPacket("PACKAGE_SEND"), macToString(module.macAddress));
     }
+}
+
+void AGModuleManager::setMQTTClient(AGMQTTClient* mqttClient) {
+    this->mqttClient = mqttClient;
+}
+
+void AGModuleManager::setConnectionSwitcher(AGConnectionSwitcher* connectionSwitcher) {
+    this->connectionSwitcher = connectionSwitcher;
 }

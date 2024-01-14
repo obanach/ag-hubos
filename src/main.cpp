@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <PubSubClient.h>
 #include <ESPAsyncWebServer.h>
 #include <DNSServer.h>
 #include "AGWiFiScanner/AGWiFiScanner.h"
@@ -8,6 +9,8 @@
 #include "AGModuleManager/AGModuleManager.h"
 #include "AGConnectionSwitcher/AGConnectionSwitcher.h"
 #include "AGDataManager/AGDataManager.h"
+#include "AGMQTTClient/AGMQTTClient.h"
+#include "AGWebClient/AGWebClient.h"
 
 const char* ssid = "AutoGrow - HUB Connection";
 const char* password = "autogrow";
@@ -16,10 +19,12 @@ IPAddress apIP(192, 168, 0, 69);
 AGWiFiScanner scanner;
 AGWiFiConnector connector;
 AGHTMLManager htmlManager;
-AGDataManager dataManager;
+AGMQTTClient mqttClient;
+AGWebClient webClient(mqttClient);
+AGDataManager dataManager(mqttClient, webClient);
 AGModuleManager moduleManager(dataManager);
-AGConnectionSwitcher connectionSwitcher(connector, moduleManager);
-AGWebServer webServer(scanner, connector, htmlManager, connectionSwitcher, moduleManager);
+AGConnectionSwitcher connectionSwitcher(connector, mqttClient, webClient);
+AGWebServer webServer(scanner, connector, htmlManager, connectionSwitcher, moduleManager, webClient, mqttClient);
 
 const byte DNS_PORT = 53;
 DNSServer dnsServer;
@@ -29,6 +34,8 @@ bool espNowInitialized = false;
 
 int espWifiNowCarousel = 0;
 bool carouselRunning = false;
+
+unsigned long mqttPackageMillis = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -44,6 +51,13 @@ void setup() {
 
     webServer.setupRoutes();
     webServer.startServer();
+
+    webClient.loadInfo();
+    mqttClient.loadCredentials();
+    moduleManager.setMQTTClient(&mqttClient);
+    moduleManager.setConnectionSwitcher(&connectionSwitcher);
+    mqttClient.setModuleManager(&moduleManager);
+    connectionSwitcher.setModuleManager(&moduleManager);
 
     espNowInitialized = false;
 
@@ -69,4 +83,20 @@ void loop() {
 		espNowInitialized = true;
         connectionSwitcher.startCarousel();
 	}
+
+    if(connector.isConnected() && !mqttClient.isConnected()) {
+        mqttClient.begin();
+    }
+
+    if(connector.isConnected() && mqttClient.isConnected()) {
+        mqttClient.loop();
+    }
+    
+    unsigned long currentMillis = millis();
+    if(currentMillis - mqttPackageMillis > 1000) {
+        mqttPackageMillis = currentMillis;
+        if(connector.isConnected() && mqttClient.isConnected()) {
+            dataManager.sendStoredPackage();
+        } else Serial.println("Not connected to WiFi or MQTT broker, skipping sending stored package.");
+    }
 }

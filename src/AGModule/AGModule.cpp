@@ -25,18 +25,12 @@ AGModule::AGModule(String name, String type, const uint8_t *macAddress) : name(n
 }
 
 AGModule::AGModule(const String& serializedModule) {
+    Serial.println("Got serialized module data: " + serializedModule);
     std::vector<String> parts = splitString(serializedModule, ';');
     if (parts.size() >= 3) {
         name = parts[0];
         type = parts[1];
-
-        // Split the MAC address
-        std::vector<String> macParts = splitString(parts[2], ':');
-        if (macParts.size() == 6) {
-            for (int i = 0; i < 6; ++i) {
-                macAddress[i] = (uint8_t) strtol(macParts[i].c_str(), nullptr, 16);
-            }
-        }
+        stringToMac(parts[2], macAddress);
     }
 }
 

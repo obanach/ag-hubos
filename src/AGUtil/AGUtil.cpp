@@ -8,11 +8,13 @@ String macToString(const uint8_t* mac) {
 }
 
 bool stringToMac(const String& macStr, uint8_t* mac) {
-    if (macStr.length() != 17) // "XX:XX:XX:XX:XX:XX" = 17 chars
+    if (macStr.length() < 11) // Minimum length "XX:XX:XX:XX:XX:XX"
         return false;
 
-    unsigned int macBytes[6];
-    if (sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x", &macBytes[0], &macBytes[1], &macBytes[2], &macBytes[3], &macBytes[4], &macBytes[5]) == 6) {
+    unsigned int macBytes[6] = {0};
+    if (sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x%*c",
+               &macBytes[0], &macBytes[1], &macBytes[2],
+               &macBytes[3], &macBytes[4], &macBytes[5]) == 6) {
         for (int i = 0; i < 6; ++i)
             mac[i] = static_cast<uint8_t>(macBytes[i]);
         return true;

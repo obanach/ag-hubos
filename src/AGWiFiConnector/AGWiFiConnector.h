@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <esp_wifi.h>
+#include <PubSubClient.h>
 
 class AGWiFiConnector {
 public:

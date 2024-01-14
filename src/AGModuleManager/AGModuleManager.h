@@ -9,8 +9,12 @@
 #include <WiFi.h>
 #include "AGModule/AGModule.h"
 #include "AGUtil/AGUtil.h"
-#include "AGDataManager/AGDataManager.h"
 #include "AGPacket/AGPacket.h"
+#include "AGServerPacket/AGServerPacket.h"
+#include "AGDataManager/AGDataManager.h"
+
+class AGMQTTClient;
+class AGConnectionSwitcher;
 
 class AGModuleManager {
 public:
@@ -20,7 +24,9 @@ public:
     bool broadcastMessage(const String& message);
     bool sendMessage(const String& message, const String& macAddress);
     void connectModule(const String& macAddress);
-    void disconnectModule(const String& macAddress);
+    void disconnectModule(const String& macAddress, bool force = false);
+    void disconnectAllModules();
+    void clearModules();
     bool isModuleConnected(const String& macAddress);
     void sendPackageRequests();
     std::vector<AGModule> getDiscoveredModuleList();
@@ -28,6 +34,8 @@ public:
     void saveModulesToMemory();
     void loadModulesFromMemory();
     static AGModuleManager* instance;
+    void setMQTTClient(AGMQTTClient* mqttClient);
+    void setConnectionSwitcher(AGConnectionSwitcher* connectionSwitcher);
 
 private:
     Preferences savedModules;
@@ -35,6 +43,8 @@ private:
     std::vector<AGModule> discoveredModules;
     std::vector<AGModule> connectedModules;
     static void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len);
+    AGMQTTClient* mqttClient;
+    AGConnectionSwitcher* connectionSwitcher;
 };
 
 #endif // AG_MODULE_MANAGER_H

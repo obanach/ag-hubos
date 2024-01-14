@@ -69,20 +69,29 @@ void AGWiFiConnector::updateConnection() {
             WiFi.disconnect();
             shouldAttemptConnection = false;
             connectionAttemptFinished = true;
+            connectionSuccessful = false;
             Serial.println("Connection to WiFi failed.");
             clearCredentials();
         }
+    } else if (WiFi.status() == WL_CONNECTED) {
+        connectionSuccessful = true;
+    } else {
+        connectionSuccessful = false;
     }
 }
 
 void AGWiFiConnector::resetConnection() {
     WiFi.disconnect();
+    ssidToSave = "";
+    passwordToSave = "";
+    saveCredentials(ssidToSave, passwordToSave);
     shouldAttemptConnection = false;
     connectionAttemptFinished = false;
     connectionSuccessful = false;
 }
 
 void AGWiFiConnector::tempDisconnect() {
+    connectionSuccessful = false;
     esp_wifi_disconnect();
 }
 

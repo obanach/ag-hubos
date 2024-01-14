@@ -1,14 +1,18 @@
 #include "AGWebServer.h"
 
 AGWebServer::AGWebServer(AGWiFiScanner& scannerRef, AGWiFiConnector& connectorRef, AGHTMLManager& htmlManagerRef, 
-                         AGConnectionSwitcher& connectionSwitcherRef, AGModuleManager& moduleManagerRef)
-: server(80), scanner(scannerRef), connector(connectorRef), htmlManager(htmlManagerRef), connectionSwitcher(connectionSwitcherRef), moduleManager(moduleManagerRef) {}
+                         AGConnectionSwitcher& connectionSwitcherRef, AGModuleManager& moduleManagerRef, AGWebClient& webClientRef, AGMQTTClient& mqttClientRef)
+: server(80), scanner(scannerRef), connector(connectorRef), htmlManager(htmlManagerRef), 
+connectionSwitcher(connectionSwitcherRef), moduleManager(moduleManagerRef), webClient(webClientRef), mqttClient(mqttClientRef) {}
 
 void AGWebServer::setupRoutes() {
-    // Serve the configuration webpage with the dropdown
     server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request){
         if (connector.isConnected()) {
-            request->redirect("/success");
+            if(mqttClient.isConnected()) {
+                request->redirect("/pairSuccess");
+            } else {
+                request->redirect("/code");
+            }
         } else if (scanner.scanComplete) {
             request->send(200, "text/html", htmlManager.getWiFiForm(scanner.getNetworksDropdownHTML()));
         } else {
@@ -27,12 +31,10 @@ void AGWebServer::setupRoutes() {
         }
     });
 
-    // Serve a page that informs the user that a connection attempt is in progress
     server.on("/connecting", HTTP_GET, [this](AsyncWebServerRequest *request){
         request->send(200, "text/html", htmlManager.getConnectingPage());
     });
 
-    // Endpoint to check the connection status
     server.on("/status", HTTP_GET, [this](AsyncWebServerRequest *request){
         request->send(200, "application/json", connector.getConnectionStatusJSON());
     });
@@ -43,7 +45,7 @@ void AGWebServer::setupRoutes() {
     });
 
     server.on("/success", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(200, "text/html", htmlManager.getSuccessPage());
+        request->redirect("/code");
     });
 
     server.on("/failure", HTTP_GET, [this](AsyncWebServerRequest *request){
@@ -51,20 +53,24 @@ void AGWebServer::setupRoutes() {
     });
 
     server.on("/reset", HTTP_GET, [this](AsyncWebServerRequest *request){
+        codeCorrect = -1;
+        webClient.deleteHub();
+        moduleManager.clearModules();
+        mqttClient.resetConnection();
         connector.resetConnection();
-        scanner.startScanNetworks();  
+        scanner.startScanNetworks();
         request->redirect("/");
     });
     
     server.on("/modules", HTTP_GET, [this](AsyncWebServerRequest *request){
-        connectionSwitcher.forceEspNow();
+        connectionSwitcher.forceEspNow(1000);
         moduleManager.discoverModules();
         delay(300);
         request->send(200, "text/html", htmlManager.getModulesPage());
     });
 
     server.on("/module", HTTP_GET, [this](AsyncWebServerRequest *request){
-        connectionSwitcher.forceEspNow();
+        connectionSwitcher.forceEspNow(1000);
 
         if (request->hasParam("mac", false)) {
             Serial.println("Request has a mac param");
@@ -84,7 +90,7 @@ void AGWebServer::setupRoutes() {
         } else {
             Serial.println("Request doesn't have a mac param");
             connectionSwitcher.startCarousel();
-            request->redirect("/"); // Redirect to an error page or the home page
+            request->redirect("/");
         }
     });
 
@@ -93,7 +99,43 @@ void AGWebServer::setupRoutes() {
         request->redirect("/");
     });
 
-    // Handle not found (if any request comes for a non-existing page)
+    server.on("/code", HTTP_GET, [this](AsyncWebServerRequest *request){
+        if(codeCorrect == 1)
+            request->redirect("/pairSuccess");
+        else if(codeCorrect == 0)
+            request->redirect("/pairFailure");
+        else if(codeCorrect == -1)
+            request->send(200, "text/html", htmlManager.getCodeInputPage());
+    });
+
+    server.on("/submitCode", HTTP_POST, [this](AsyncWebServerRequest *request){
+        if (request->hasParam("code", true)) {
+            String codeValue = request->getParam("code", true)->value();
+            Serial.println("Code submitted: " + codeValue);
+            codeCorrect = -1;
+            if(webClient.sendVerificationCode(codeValue)) {
+                codeCorrect = 1;
+                request->redirect("/pairSuccess");
+            } else {
+                codeCorrect = 0;
+                request->redirect("/pairFailure");
+            }
+        } else {
+            request->send(400, "text/html", htmlManager.getCodeInputPage());
+        }
+    });
+
+    server.on("/pairSuccess", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(200, "text/html", htmlManager.getPairingSuccessPage());
+    });
+
+    server.on("/pairFailure", HTTP_GET, [this](AsyncWebServerRequest *request){
+        if(codeCorrect == 0 || codeCorrect == -1)
+            request->send(200, "text/html", htmlManager.getPairingFailurePage());
+        else
+            request->redirect("/code");
+    });
+
     server.onNotFound([this](AsyncWebServerRequest *request) {
         request->redirect("/");
     });

@@ -20,7 +20,7 @@ void AGWiFiScanner::scanTask(void *pvParameters) {
     scanner->generateDropdownHTML();
     Serial.println("Scan complete, " + String(scanner->numberOfNetworks) + " networks found.");
   } else if (scanner->numberOfNetworks == WIFI_SCAN_FAILED) {
-    scanner->dropdownHTML = "<p>Scan failed! Please try refreshing the network list and refer to the manual.</p>";
+    scanner->dropdownHTML = "<p>Scan failed! Please try restarting the device. If that doesn't work, refer to the manual.</p>";
     Serial.println("Scan failed!");
   }
 
