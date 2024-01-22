@@ -278,118 +278,6 @@ String AGHTMLManager::getScanningPage() {
            "</div></body></html>";
 }
 
-String AGHTMLManager::getModulesPage() {
-    String html = "<!DOCTYPE html><html><head><title>Modules</title>"
-        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-        "<style>"
-        "body {"
-        "    font-family: Arial, sans-serif;"
-        "    padding: 20px;"
-        "    background-color: #f5f5f5;"
-        "}"
-        ".module {"
-        "    background-color: #FFFFFF;"
-        "    border: 1px solid #DDD;"
-        "    padding: 10px;"
-        "    margin-bottom: 10px;"
-        "    border-radius: 4px;"
-        "    cursor: pointer;"
-        "}"
-        ".module:hover {"
-        "    background-color: #EEE;"
-        "}"
-        "h1 {"
-        "    color: #333;"
-        "}"
-        "h2 {"
-        "    color: #444;"
-        "}"
-        "h3 {"
-        "    color: #555;"
-        "}"
-        "button {"
-        "    padding: 10px;"
-        "    background-color: #4CAF50;"
-        "    color: white;"
-        "    border: none;"
-        "    border-radius: 4px;"
-        "    cursor: pointer;"
-        "}"
-        "button:hover {"
-        "    background-color: #45a049;"
-        "}"
-        "</style>"
-        "</head><body>"
-        "<h1>Available Modules</h1>";
-
-    std::vector<AGModule> modules = AGModuleManager::instance->getDiscoveredModuleList();
-    std::vector<AGModule> connectedModules = AGModuleManager::instance->getConnectedModuleList();
-
-    if(modules.size() == 0 && connectedModules.size() == 0) {
-        html += "<h2>No modules found :(</h2>"
-        "<h3>Please refresh the page in a moment.</h3>"
-        "<h3>If the issue persists, please make sure that the module you'd like to add is powered on an in range.</h3>";
-    } else {
-        // Display Connected and Nearby Modules
-        html += "<h2>Connected and working:</h2>";
-        for (const auto& module : modules) {
-            for (const auto& connectedModule : connectedModules) {
-                if (module.isMacAddressEqual(connectedModule.macAddress)) {
-                    html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">"
-                        "<h2>" + module.name + " (" + module.type + ")</h2>"
-                        "<p>MAC: " + macToString(module.macAddress) + "</p>"
-                        "</div>";
-                    break;
-                }
-            }
-        }
-
-        // Display Connected, but Not Nearby Modules
-        html += "<h2>Connected, but unreachable:</h2>";
-        for (const auto& connectedModule : connectedModules) {
-            bool isNearby = false;
-            for (const auto& module : modules) {
-                if (connectedModule.isMacAddressEqual(module.macAddress)) {
-                    isNearby = true;
-                    break;
-                }
-            }
-            if (!isNearby) {
-                html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(connectedModule.macAddress) + "'\">"
-                    "<h2>" + connectedModule.name + " (" + connectedModule.type + ")</h2>"
-                    "<p>MAC: " + macToString(connectedModule.macAddress) + "</p>"
-                    "</div>";
-            }
-        }
-
-        // Display Not Connected Modules
-        html += "<h2>Not connected:</h2>";
-        for (const auto& module : modules) {
-            bool isConnected = false;
-            for (const auto& connectedModule : connectedModules) {
-                if (module.isMacAddressEqual(connectedModule.macAddress)) {
-                    isConnected = true;
-                    break;
-                }
-            }
-            if (!isConnected) {
-                html += "<div class='module' onclick=\"window.location.href='module?mac=" + macToString(module.macAddress) + "'\">"
-                    "<h2>" + module.name + " (" + module.type + ")</h2>"
-                    "<p>MAC: " + macToString(module.macAddress) + "</p>"
-                    "</div>";
-            }
-        }
-    }
-
-    // Adding the 'Done' button
-    html += "<button onclick=\"window.location.href='modulesDone'\">Done</button>";
-
-    html += "</body></html>";
-
-    return html;
-}
-
-
 String AGHTMLManager::getCodeInputPage() {
     return 
     "<!DOCTYPE html>"
@@ -561,7 +449,6 @@ String AGHTMLManager::getPairingSuccessPage() {
     "<body>"
     "<div class='container'>"
     "    <h1>Paired with AutoGrow system successfully!</h1>"
-    "    <a href='/modules' class='btn'>Add a module</a>"
     "    <a href='/reset' class='btn btn-red'>Reset the hub</a>"
     "</div>"
     "</body>"

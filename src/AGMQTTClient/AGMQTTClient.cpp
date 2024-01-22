@@ -14,13 +14,13 @@ void AGMQTTClient::begin() {
     connecting = true;
     Serial.println("AGMQTTClient trying to connect to MQTT broker...");
     mqttClient.setServer(mqttBroker.c_str(), mqttPort);
-    mqttClient.setCallback(callback);
+    mqttClient.setCallback(receiveMessage);
+    mqttClient.setBufferSize(2048);
     clientId = "hub-";
     clientId += String(WiFi.macAddress());
     if (mqttClient.connect(clientId.c_str(), mqttUsername.c_str(), mqttPassword.c_str())) {
         Serial.println("AutoGrow EMQX MQTT broker connected");
         subscribe(topic + "/#");
-        publish(connectionTopic, "Hub online.");
     } else {
         Serial.print("Failed with state ");
         Serial.println(mqttClient.state());
@@ -46,17 +46,35 @@ void AGMQTTClient::setCredentials(const String& id, const String& name, const St
 
 void AGMQTTClient::loop() {
     if(connecting && mqttClient.connected()) connecting = false;
+    if(mqttClient.connected()) {
+        publishStoredPackets();
+    }
     mqttClient.loop();
 }
 
-void AGMQTTClient::callback(char *topic, byte *payload, unsigned int length) {
+void AGMQTTClient::receiveMessage(char *topic, byte *payload, unsigned int length) {
     Serial.print("Message arrived in topic: ");
-    Serial.print(topic);
-    Serial.print(" / ");
+    Serial.println(topic);
     String topicString = String(topic);
-    int lastSlashIndex = topicString.lastIndexOf("/");
-    String lastTopic = topicString.substring(lastSlashIndex + 1);
-    Serial.println(lastTopic);
+    std::vector<String> topicParts;
+    int slashIndex = 0;
+    int lastSlashIndex = -1;
+
+    while (slashIndex != -1) {
+        slashIndex = topicString.indexOf("/", slashIndex + 1);
+
+        if (slashIndex != -1)
+            topicParts.push_back(topicString.substring(lastSlashIndex + 1, slashIndex));
+        else
+            topicParts.push_back(topicString.substring(lastSlashIndex + 1));
+
+        lastSlashIndex = slashIndex;
+    }
+
+    // hub/id/topic1/topic2/...
+    String firstTopic = topicParts.size() > 2 ? topicParts[2] : "";
+    String secondTopic = topicParts.size() > 3 ? topicParts[3] : "";
+    Serial.println("First topic: \"" + firstTopic + "\", second topic: \"" + secondTopic + "\".");
     Serial.print("Message: ");
     String message = "";
     for (int i = 0; i < length; i++) {
@@ -65,14 +83,70 @@ void AGMQTTClient::callback(char *topic, byte *payload, unsigned int length) {
     }
     Serial.println();
     Serial.println("-----------------------");
+
+    AGServerPacket packet(message);
+    Serial.println("Packet type: " + packet.responseType);
+    if(packet.responseType == "request") {
+        if(firstTopic == "module") {
+            if(secondTopic == "discover") {
+                instance->moduleManager->forceDiscoverModules();
+            } else 
+            if(secondTopic == "pair") {
+                DynamicJsonDocument doc(1024);
+                deserializeJson(doc, packet.contents);
+                if(doc["macAddress"].isNull()) {
+                    Serial.println("MAC address not found in packet.");
+                    return;
+                }
+                String macAddress = doc["macAddress"].as<String>();
+                
+                instance->moduleManager->connectModule(macAddress);
+            } else
+            if(secondTopic == "delete") {
+                DynamicJsonDocument doc(1024);
+                deserializeJson(doc, packet.contents);
+
+                if(doc["macAddress"].isNull()) {
+                    Serial.println("MAC address not found in packet.");
+                    if(doc["id"].isNull()) {
+                        Serial.println("ID not found in packet.");
+                        return;
+                    }
+                    String id = doc["id"].as<String>();
+                    AGModule module = instance->moduleManager->findModuleByID(id);
+                    if(module.macAddress != nullptr) {
+                        instance->moduleManager->disconnectModule(macToString(module.macAddress));
+                    } else {
+                        Serial.println("Module not found.");
+                    }
+                } else {
+                    String macAddress = doc["macAddress"].as<String>();
+                    instance->moduleManager->disconnectModule(macAddress);
+                }
+            }
+        }
+    }
 }
 
 void AGMQTTClient::publish(const String& topic, const String& payload) {
-    mqttClient.publish(topic.c_str(), payload.c_str());
+    if(!mqttClient.connected() || !WiFi.isConnected()) 
+        storePacket(AGPacket(payload), topic);
+    else
+        if(mqttClient.publish(topic.c_str(), payload.c_str()))
+            Serial.println("Packet sent.");
+        else
+            Serial.println("Packet not sent.");
 }
 
 void AGMQTTClient::publish(const AGServerPacket& packet) {
-    mqttClient.publish(packet.topic.c_str(), packet.toString().c_str());
+    if(!mqttClient.connected() || !WiFi.isConnected()) 
+        storePacket(packet);
+    else {
+        if(mqttClient.publish(packet.topic.c_str(), packet.toString().c_str()))
+            Serial.println("Packet sent.");
+        else
+            Serial.println("Packet not sent.");
+    }
 }
 
 void AGMQTTClient::storePacket(const AGServerPacket& packet) {
@@ -83,6 +157,13 @@ void AGMQTTClient::storePacket(const AGPacket& packet, const String& topic) {
     AGServerPacket serverPacket(packet);
     serverPacket.topic = topic;
     storedPackets.push_back(serverPacket);
+}
+
+void AGMQTTClient::publishDiscoveredModules(std::vector<AGModule> modules) {
+    AGServerPacket packet;
+    packet.contentsFromModuleVector(modules);
+    packet.topic = topic + "/module/discover";
+    publish(packet);
 }
 
 void AGMQTTClient::publishStoredPackets() {
@@ -111,17 +192,10 @@ bool AGMQTTClient::isConnected() {
     return mqttClient.connected();
 }
 
-String AGMQTTClient::getConnectionStatusJSON() {
-    String status = "{\"connected\":";
-    status += isConnected() ? "true" : "false";
-    status += "}";
-    return status;
-}
-
 void AGMQTTClient::resetConnection() {
-    mqttClient.disconnect();
     shouldReconnect = false;
     credentialsSet = false;
+    mqttClient.disconnect();
     id = "";
     name = "";
     mqttUsername = "";
@@ -134,8 +208,10 @@ void AGMQTTClient::resetConnection() {
 }
 
 void AGMQTTClient::tempDisconnect() {
-    shouldReconnect = false;
-    if(mqttClient.connected()) mqttClient.disconnect();
+    if(mqttClient.connected()) {
+        shouldReconnect = false;
+        mqttClient.disconnect();
+    }
 }
 
 void AGMQTTClient::tempReconnect() {

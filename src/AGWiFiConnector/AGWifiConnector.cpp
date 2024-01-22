@@ -106,14 +106,3 @@ bool AGWiFiConnector::isConnected() {
 bool AGWiFiConnector::isConnectionAttemptFinished() {
     return connectionAttemptFinished;
 }
-
-String AGWiFiConnector::getConnectionStatusJSON() {
-    if (connectionAttemptFinished) {
-        if (connectionSuccessful) {
-            return "{\"connected\": true}";
-        } else {
-            return "{\"failed\": true}";
-        }
-    }
-    return "{\"connecting\": true}";
-}

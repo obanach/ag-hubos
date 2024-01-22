@@ -19,13 +19,14 @@ public:
     void stopCarousel();
     bool isCarouselRunning();
     void forceEspNow();
-    void forceEspNow(int timeToForce);
+    void forceEspNow(int timeToForce, bool forceDiscoverModules = false);
     void forceWiFi();
     void setModuleManager(AGModuleManager* moduleManager);
 
 private:
     bool carouselRunning;
     bool espNowTimedForce;
+    bool forcedDiscovery;
     int espNowTimedForceTime;
     int64_t carouselStartTime;
     int64_t espTimer;

@@ -14,6 +14,7 @@
 #include "AGDataManager/AGDataManager.h"
 
 class AGMQTTClient;
+class AGWebClient;
 class AGConnectionSwitcher;
 
 class AGModuleManager {
@@ -33,9 +34,14 @@ public:
     std::vector<AGModule> getConnectedModuleList();
     void saveModulesToMemory();
     void loadModulesFromMemory();
+    void forceDiscoverModules();
     static AGModuleManager* instance;
+    bool setModuleID(const String& macAddress, const String& id);
+    AGModule findModuleByMacAddress(const String& macAddress);
+    AGModule findModuleByID(const String& id);
     void setMQTTClient(AGMQTTClient* mqttClient);
     void setConnectionSwitcher(AGConnectionSwitcher* connectionSwitcher);
+    void setWebClient(AGWebClient* webClient);
 
 private:
     Preferences savedModules;
@@ -44,6 +50,7 @@ private:
     std::vector<AGModule> connectedModules;
     static void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len);
     AGMQTTClient* mqttClient;
+    AGWebClient* webClient;
     AGConnectionSwitcher* connectionSwitcher;
 };
 

@@ -4,8 +4,19 @@ AGDataManager::AGDataManager(AGMQTTClient& mqttClientRef, AGWebClient& webClient
     storedPackages.clear();
 }
 
-void AGDataManager::getPackage(AGPacket package) {
-    storedPackages.push_back(package);
+void AGDataManager::getPackage(AGPacket package, AGModule module) {
+    std::pair<AGPacket, AGModule> pair(package, module);
+    storedPackages.push_back(pair);
+}
+
+void AGDataManager::sendStoredPackage() {
+    if(storedPackages.size() == 0) {
+        return;
+    }
+
+    AGPacket package = storedPackages.front().first;
+    AGModule module = storedPackages.front().second;
+
     StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, package.data);
 
@@ -29,19 +40,11 @@ void AGDataManager::getPackage(AGPacket package) {
     Serial.print("Dirt Humidity: "); Serial.println(dirtHumidity);
     Serial.print("Voltage: "); Serial.println(voltage);
     Serial.print("Battery Percentage: "); Serial.println(batteryPercentage);
-}
-
-void AGDataManager::sendStoredPackage() {
-    if(storedPackages.size() == 0) {
-        return;
-    }
-
-    AGPacket package = storedPackages.front();
-
-
 
     storedPackages.erase(storedPackages.begin());
+
+    String data = "{\"temperature\": " + String(temperature) + ", \"humidity\": " + String(airHumidity) + ", \"dirt\": " + String(dirtHumidity * 100) + ", \"battery\": " + String(batteryPercentage) + "}";
     
-    Serial.println("Sending package to MQTT.");
-    mqttClient.publish("hub/1/data", package.toString());
+    AGWebRequest request("/module/" + module.id + "/data", "POST", data, timestamp);
+    webClient.storeRequest(request);
 }

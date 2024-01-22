@@ -6,6 +6,7 @@
 #include <Preferences.h>
 #include <vector>
 #include "AGServerPacket/AGServerPacket.h"
+#include "AGModule/AGModule.h"
 
 class AGModuleManager;
 
@@ -21,18 +22,18 @@ public:
     void subscribe(const String& topic);
     void unsubscribe(const String& topic);
     bool isConnected();
-    String getConnectionStatusJSON();
     void resetConnection();
     void tempDisconnect();
     void tempReconnect();
     void storePacket(const AGServerPacket& packet);
     void storePacket(const AGPacket& packet, const String& topic);
     void publishStoredPackets();
-    static void callback(char *topic, uint8_t *payload, unsigned int length);
+    void publishDiscoveredModules(std::vector<AGModule> modules);
+    static void receiveMessage(char *topic, uint8_t *payload, unsigned int length);
 
     bool shouldReconnect;
     bool credentialsSet;
-    String topic = "hub/1/test";
+    String topic;
     void saveCredentials();
     bool loadCredentials();
     bool connecting;
@@ -44,8 +45,8 @@ public:
     String name;
     String mqttBroker = "mqtt.autogrow.pl";
     String connectionTopic;
-    String mqttUsername = "test";
-    String mqttPassword = "test";
+    String mqttUsername;
+    String mqttPassword;
     int mqttPort = 1883;
     String clientId;
     WiFiClient wifiClient;

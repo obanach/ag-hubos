@@ -35,10 +35,6 @@ void AGWebServer::setupRoutes() {
         request->send(200, "text/html", htmlManager.getConnectingPage());
     });
 
-    server.on("/status", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(200, "application/json", connector.getConnectionStatusJSON());
-    });
-        
     server.on("/refresh", HTTP_GET, [this](AsyncWebServerRequest *request){
         scanner.startScanNetworks();
         request->redirect("/");
@@ -54,48 +50,16 @@ void AGWebServer::setupRoutes() {
 
     server.on("/reset", HTTP_GET, [this](AsyncWebServerRequest *request){
         codeCorrect = -1;
-        webClient.deleteHub();
-        moduleManager.clearModules();
         mqttClient.resetConnection();
+        Serial.println("MQTT reset.");
+        webClient.deleteHub();
+        Serial.println("Hub deleted.");
+        moduleManager.clearModules();
+        Serial.println("Modules cleared.");
         connector.resetConnection();
+        Serial.println("WiFi reset.");
         scanner.startScanNetworks();
-        request->redirect("/");
-    });
-    
-    server.on("/modules", HTTP_GET, [this](AsyncWebServerRequest *request){
-        connectionSwitcher.forceEspNow(1000);
-        moduleManager.discoverModules();
-        delay(300);
-        request->send(200, "text/html", htmlManager.getModulesPage());
-    });
-
-    server.on("/module", HTTP_GET, [this](AsyncWebServerRequest *request){
-        connectionSwitcher.forceEspNow(1000);
-
-        if (request->hasParam("mac", false)) {
-            Serial.println("Request has a mac param");
-            String macValue = request->getParam("mac", false)->value();
-
-            if (moduleManager.isModuleConnected(macValue)) {
-                moduleManager.disconnectModule(macValue);
-                Serial.println("Module disconnected");
-            } else {
-                moduleManager.connectModule(macValue);
-                Serial.println("Module connected");
-            }
-
-            connectionSwitcher.startCarousel();
-            delay(300);
-            request->redirect("/modules");
-        } else {
-            Serial.println("Request doesn't have a mac param");
-            connectionSwitcher.startCarousel();
-            request->redirect("/");
-        }
-    });
-
-    server.on("/modulesDone", HTTP_GET, [this](AsyncWebServerRequest *request){
-        connectionSwitcher.startCarousel();
+        Serial.println("Scanning started.");
         request->redirect("/");
     });
 

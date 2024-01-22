@@ -10,18 +10,27 @@ AGConnectionSwitcher::AGConnectionSwitcher(AGWiFiConnector& connectorRef, AGMQTT
     espTimer = 0;
     discoverTimer = 0;
     espNowTimedForce = false;
+    forcedDiscovery = false;
 }
 
 // This function will return 0 or 1 depending on how long the carousel has been running. 0 means WIFI, 1 means ESP-NOW.
 int AGConnectionSwitcher::updateCarousel(bool force /* = false */) {
+
+    if(connector.isConnected() && forcedDiscovery && mqttClient.isConnected()) {
+        forcedDiscovery = false;
+        Serial.println("Sending results of forced discovery with size " + String(moduleManager->getDiscoveredModuleList().size()) + " to MQTT.");
+        mqttClient.publishDiscoveredModules(moduleManager->getDiscoveredModuleList());
+    }
+
     if (espNowTimedForce) {
         int64_t timeNow = esp_timer_get_time();
-        if(timeNow - espTimer > espNowTimedForceTime) {
+
+        if(timeNow - espTimer > espNowTimedForceTime * 1000) {
             espNowTimedForce = false;
+            carouselRunning = true;
             Serial.println("ESP-NOW timed force expired.");
             connector.tempReconnect();
             mqttClient.tempReconnect();
-            carouselStartTime = timeNow;
         }
     } else if (carouselRunning || force) {
         int64_t timeNow = esp_timer_get_time();
@@ -32,11 +41,11 @@ int AGConnectionSwitcher::updateCarousel(bool force /* = false */) {
             moduleManager->sendPackageRequests();
         }
 
-        if (carouselMode == 1 && timeNow - discoverTimer > 15e4) { // 150ms
-            discoverTimer = timeNow;
-            Serial.println("Discovering modules...");
-            moduleManager->discoverModules();
-        }
+        // if (carouselMode == 1 && timeNow - discoverTimer > 15e4) { // 150ms
+        //     discoverTimer = timeNow;
+        //     Serial.println("Discovering modules...");
+        //     moduleManager->discoverModules();
+        // }
 
         if (carouselMode == 0 && timeNow - carouselStartTime > 59e6) { // 59s
             carouselMode = 1;
@@ -86,22 +95,30 @@ void AGConnectionSwitcher::forceWiFi() {
     carouselRunning = false;
     carouselMode = 0;
     connector.tempReconnect();
+    mqttClient.tempReconnect();
 }
 
 void AGConnectionSwitcher::forceEspNow() {
     Serial.println("Forcing ESP-NOW...");
     carouselRunning = false;
     carouselMode = 1;
+    mqttClient.tempDisconnect();
     connector.tempDisconnect();
 }
 
-void AGConnectionSwitcher::forceEspNow(int timeToForce) {
+void AGConnectionSwitcher::forceEspNow(int timeToForce, bool forceDiscoverModules /* = false */) {
     Serial.println("Forcing ESP-NOW for " + String(timeToForce) + "ms...");
     espNowTimedForce = true;
     espNowTimedForceTime = timeToForce;
     carouselRunning = false;
     carouselMode = 1;
+    mqttClient.tempDisconnect();
     connector.tempDisconnect();
+    espTimer = esp_timer_get_time();
+    if(forceDiscoverModules) {
+        forcedDiscovery = true;
+        moduleManager->discoverModules();
+    }
 }
 
 void AGConnectionSwitcher::setModuleManager(AGModuleManager* moduleManager) {

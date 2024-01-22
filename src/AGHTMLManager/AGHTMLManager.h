@@ -16,7 +16,6 @@ public:
   String getConnectingPage();
   String getFailurePage();
   String getScanningPage();
-  String getModulesPage();
   String getCodeInputPage();
   String getPairingSuccessPage();
   String getPairingFailurePage();

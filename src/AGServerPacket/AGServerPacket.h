@@ -11,6 +11,7 @@ class AGServerPacket {
 public:
     AGServerPacket();
     AGServerPacket(const AGPacket& packet);
+    AGServerPacket(const String& serializedPacket);
     String toString() const;
     String topic;
     String responseType;

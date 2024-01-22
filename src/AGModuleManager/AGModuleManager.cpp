@@ -5,7 +5,7 @@
 
 AGModuleManager* AGModuleManager::instance = nullptr;
 
-AGModuleManager::AGModuleManager(AGDataManager& dataManagerRef) : dataManager(dataManagerRef), mqttClient(nullptr), connectionSwitcher(nullptr) {
+AGModuleManager::AGModuleManager(AGDataManager& dataManagerRef) : dataManager(dataManagerRef), mqttClient(nullptr), connectionSwitcher(nullptr), webClient(nullptr) {
     instance = this;
 }
 
@@ -73,24 +73,10 @@ bool AGModuleManager::sendMessage(const String& message, const String& macAddres
 }
 
 void AGModuleManager::connectModule(const String& macAddress) {
-    // Check if the module with the given MAC address is already connected
-    uint8_t newMac[6];
-    stringToMac(macAddress, newMac);
-    auto it = std::find_if(
-        connectedModules.begin(), 
-        connectedModules.end(), 
-        [&newMac](const AGModule& m) {
-            return std::equal(std::begin(m.macAddress), std::end(m.macAddress), std::begin(newMac));
-        }
-    );
+    connectionSwitcher->forceEspNow(2000);
 
-    // If the module is not already connected, create a new AGModule object and add it to the list
-    if (it == connectedModules.end()) {
-        if(sendMessage(AGPacket("PAIR"), macAddress))
-            Serial.println("Module pairing request sent: " + macAddress);
-    } else {
-        Serial.println("Module already connected: " + macAddress);
-    }
+    if(sendMessage(AGPacket("PAIR"), macAddress))
+        Serial.println("Module pairing request sent: " + macAddress);
 }
 
 void AGModuleManager::disconnectModule(const String& macAddress, bool force /* = false */) {
@@ -98,7 +84,8 @@ void AGModuleManager::disconnectModule(const String& macAddress, bool force /* =
     uint8_t newMac[6];
     stringToMac(macAddress, newMac);
 
-    connectionSwitcher->forceEspNow(500);
+    connectionSwitcher->forceEspNow(2000);
+
     if(force) {
         connectedModules.erase(
         std::remove_if(
@@ -123,9 +110,13 @@ void AGModuleManager::disconnectAllModules() {
 
 void AGModuleManager::clearModules() {
     disconnectAllModules();
+    Serial.println("All modules disconnected.");
     connectedModules.clear();
+    Serial.println("Connected modules list cleared.");
     discoveredModules.clear();
+    Serial.println("Discovered modules list cleared.");
     saveModulesToMemory();
+    Serial.println("Modules saved to memory.");
 }
 
 bool AGModuleManager::isModuleConnected(const String& macAddress) {
@@ -151,7 +142,8 @@ void AGModuleManager::saveModulesToMemory() {
 
     for (size_t i = 0; i < connectedModules.size(); i++) {
         String key = "module" + String(i);
-        String value = connectedModules[i].toString();
+        String value = connectedModules[i].toString() + ";" + connectedModules[i].id;
+        Serial.println("Saving module: " + value);
         savedModules.putString(key.c_str(), value);
     }
 
@@ -173,7 +165,11 @@ void AGModuleManager::loadModulesFromMemory() {
             break;
 
         String serializedModule = savedModules.getString(key.c_str());
+        String id = serializedModule.substring(serializedModule.lastIndexOf(';') + 1);
+        Serial.println("Loading module ID: " + id);
+        serializedModule = serializedModule.substring(0, serializedModule.lastIndexOf(';'));
         AGModule module(serializedModule);
+        module.id = id;
         connectedModules.push_back(module);
     }
 
@@ -190,10 +186,10 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
         AGModule agModule(packet.data);
         Serial.println("Module info: " + packet.data + " - " + agModule.toString());
         bool found = false;
-        for (auto& module : instance->discoveredModules) {
+        for (auto& module : instance->connectedModules) {
             if (module.isMacAddressEqual(mac_addr)) {
                 found = true;
-                Serial.println("ESP8266 module already discovered: " + macToString(mac_addr));
+                Serial.println("ESP8266 module discovered, but connected: " + macToString(mac_addr));
                 break;
             }
         }
@@ -211,22 +207,41 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
             if (module.isMacAddressEqual(mac_addr)) {
                 found = true;
                 Serial.println("Module already connected: " + macToString(mac_addr));
+                DynamicJsonDocument doc(1024);
+                doc["paired"] = "null";
+                doc["type"] = agModule.type;
+                doc["macAddress"] = macToString(mac_addr);
+                String output;
+                serializeJson(doc, output);
+                AGServerPacket serverPacket;
+                serverPacket.topic = instance->mqttClient->topic + "/module/pair";
+                serverPacket.contents = output;
+                instance->mqttClient->publish(serverPacket);
                 break;
             }
         }
 
         if (!found) {
+            instance->connectionSwitcher->forceWiFi();
+            agModule.id = instance->webClient->registerModule(agModule);
             instance->connectedModules.push_back(agModule);
-            Serial.println("Module connected and added to the list: " + macToString(mac_addr));
-            AGServerPacket serverPacket;
-            serverPacket.contentsFromModuleVector(instance->connectedModules);
-            Serial.println(serverPacket);
+            Serial.println("Module connected and added to the list: " + macToString(mac_addr) + " with ID: " + agModule.id);
             instance->saveModulesToMemory();
         }
-
-        instance->discoverModules();
     } else if(packet.header == "PAIR_KO") {
         Serial.println("Module pairing failed: " + macToString(mac_addr));
+        String moduleInfo = packet.data;
+        AGModule agModule(moduleInfo);
+        AGServerPacket serverPacket;
+        DynamicJsonDocument doc(1024);
+        doc["paired"] = false;
+        doc["type"] = agModule.type;
+        doc["macAddress"] = macToString(mac_addr);
+        String output;
+        serializeJson(doc, output);
+        serverPacket.topic = instance->mqttClient->topic + "/module/pair";
+        serverPacket.contents = output;
+        instance->mqttClient->publish(serverPacket);
     } else if(packet.header == "UNPAIR_OK") {
         uint8_t newMac[6];
         memcpy(newMac, mac_addr, 6);
@@ -239,10 +254,26 @@ void AGModuleManager::OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomi
             }), 
             instance->connectedModules.end()
         );
-        instance->discoverModules();
+        String moduleInfo = packet.data;
+        AGModule agModule(moduleInfo);
+        AGServerPacket serverPacket;
+        DynamicJsonDocument doc(1024);
+        doc["paired"] = false;
+        doc["type"] = agModule.type;
+        doc["macAddress"] = macToString(mac_addr);
+        String output;
+        serializeJson(doc, output);
+        serverPacket.topic = instance->mqttClient->topic + "/module/delete";
+        serverPacket.contents = output;
+        instance->mqttClient->publish(serverPacket);
         Serial.println("Module disconnected: " + macToString(mac_addr));
     } else if(packet.header == "DATA") {
-        instance->dataManager.getPackage(packet);
+        AGModule agModule = instance->findModuleByMacAddress(macToString(mac_addr));
+        if(agModule.macAddress == nullptr) {
+            Serial.println("Module not found: " + macToString(mac_addr));
+            return;
+        }
+        instance->dataManager.getPackage(packet, agModule);
     } else if(packet.header == "NO_PACKAGES") {
 
     } else {
@@ -256,10 +287,47 @@ void AGModuleManager::sendPackageRequests() {
     }
 }
 
+void AGModuleManager::forceDiscoverModules() {
+    connectionSwitcher->forceEspNow(1000, true);
+}
+
+AGModule AGModuleManager::findModuleByMacAddress(const String& macAddress) {
+    for (auto& module : connectedModules) {
+        if (macToString(module.macAddress) == macAddress) {
+            return module;
+        }
+    }
+    return AGModule("", "", nullptr);
+}
+
+AGModule AGModuleManager::findModuleByID(const String& id) {
+    for (auto& module : connectedModules) {
+        if (module.id == id) {
+            return module;
+        }
+    }
+    return AGModule("", "", nullptr);
+}
+
+bool AGModuleManager::setModuleID(const String& macAddress, const String& id) {
+    for (auto& module : connectedModules) {
+        if (macToString(module.macAddress) == macAddress) {
+            module.id = id;
+            saveModulesToMemory();
+            return true;
+        }
+    }
+    return false;
+}
+
 void AGModuleManager::setMQTTClient(AGMQTTClient* mqttClient) {
     this->mqttClient = mqttClient;
 }
 
 void AGModuleManager::setConnectionSwitcher(AGConnectionSwitcher* connectionSwitcher) {
     this->connectionSwitcher = connectionSwitcher;
+}
+
+void AGModuleManager::setWebClient(AGWebClient* webClient) {
+    this->webClient = webClient;
 }

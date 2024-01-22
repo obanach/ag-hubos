@@ -53,9 +53,11 @@ void setup() {
     webServer.startServer();
 
     webClient.loadInfo();
+    webClient.setModuleManager(&moduleManager);
     mqttClient.loadCredentials();
     moduleManager.setMQTTClient(&mqttClient);
     moduleManager.setConnectionSwitcher(&connectionSwitcher);
+    moduleManager.setWebClient(&webClient);
     mqttClient.setModuleManager(&moduleManager);
     connectionSwitcher.setModuleManager(&moduleManager);
 
@@ -74,7 +76,7 @@ void setup() {
 }
 
 void loop() {
-    dnsServer.processNextRequest(); // Redirect all DNS requests to this device's IP address
+    dnsServer.processNextRequest();
     connector.updateConnection();
     connectionSwitcher.updateCarousel();
 	
@@ -90,10 +92,22 @@ void loop() {
 
     if(connector.isConnected() && mqttClient.isConnected()) {
         mqttClient.loop();
+        webClient.loop();
+    }
+
+    if(webClient.resetFlag) {
+        webClient.resetFlag = false;
+        webClient.credentialsSet = false;
+        moduleManager.clearModules();
+        delay(500);
+        webClient.saveInfo();
+        delay(500);
+        mqttClient.resetConnection();
+        Serial.println("Resetting connection...");
     }
     
     unsigned long currentMillis = millis();
-    if(currentMillis - mqttPackageMillis > 1000) {
+    if(currentMillis - mqttPackageMillis > 3000) {
         mqttPackageMillis = currentMillis;
         if(connector.isConnected() && mqttClient.isConnected()) {
             dataManager.sendStoredPackage();

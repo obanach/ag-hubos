@@ -20,7 +20,7 @@ std::vector<String> splitString(const String& str, char delimiter) {
     return elements;
 }
 
-AGModule::AGModule(String name, String type, const uint8_t *macAddress) : name(name), type(type) {
+AGModule::AGModule(String name, String type, const uint8_t *macAddress) : name(name), type(type), id("") {
     memcpy(this->macAddress, macAddress, 6);
 }
 

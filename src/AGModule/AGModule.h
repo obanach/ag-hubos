@@ -14,6 +14,7 @@ public:
     AGModule(const String& serializedModule);
     String name;
     String type;
+    String id;
     uint8_t macAddress[6];
 
     String toString();

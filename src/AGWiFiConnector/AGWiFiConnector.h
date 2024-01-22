@@ -16,7 +16,6 @@ public:
   void resetConnection();
   bool isConnected();
   bool isConnectionAttemptFinished();
-  String getConnectionStatusJSON();
   String getSavedSSID();
   String getSavedPassword();
   void clearCredentials();

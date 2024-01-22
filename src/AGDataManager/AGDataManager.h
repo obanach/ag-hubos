@@ -7,16 +7,17 @@
 #include "AGPacket/AGPacket.h"
 #include "AGWebClient/AGWebClient.h"
 #include "AGMQTTClient/AGMQTTClient.h"
+#include "AGWebRequest/AGWebRequest.h"
 
 class AGDataManager {
 public:
     AGDataManager(AGMQTTClient& mqttClientRef, AGWebClient& webClientRef);
-    void getPackage(AGPacket package);
+    void getPackage(AGPacket package, AGModule module);
     void sendStoredPackage();
 private:
     AGMQTTClient& mqttClient;
     AGWebClient& webClient;
-    std::vector<AGPacket> storedPackages;
+    std::vector<std::pair<AGPacket, AGModule>> storedPackages;
 };
 
 #endif // AG_DATA_MANAGER_H
