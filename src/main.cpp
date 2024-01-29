@@ -63,7 +63,7 @@ void setup() {
 
     espNowInitialized = false;
 
-    if(connector.checkCredentials()) { // TODO: move to connector
+    if(connector.checkCredentials()) {
         Serial.println("Saved credentials found, attempting connection...");
         connector.attemptConnection(connector.getSavedSSID(), connector.getSavedPassword());
     } else {
